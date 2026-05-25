@@ -135,6 +135,34 @@ idempotently) by `make fromscratch`.
 
 ## Usage
 
+### First-time WiFi provisioning
+
+The `startup` script assumes the ESP8266 has already associated with
+your WiFi network and that ESP-AT has persisted the credentials in
+its own flash (it does, by default, since AT firmware ≥ 1.5).  On
+a brand-new ESP you need to join the network once from a local
+shell:
+
+```
+# Skip the wifi/wtbridge bits in startup by booting to a local shell
+# first (interrupt startup or boot a disk without it), then:
+
+wifi AT+CWMODE=1                    # station mode
+wifi AT+CWJAP="<ssid>","<password>" # join (saved to ESP flash)
+wifi AT+CIFSR                       # confirm: shows the assigned IP
+```
+
+The next reboot will pick up the saved credentials automatically and
+the normal `startup` flow will work.  Verify any time with
+`wifi AT+CWJAP?` (currently associated AP) or `wifi AT+CIFSR` (IP
+address).
+
+To switch networks later: `wifi AT+CWJAP="<new-ssid>","<new-pw>"`
+overwrites the saved entry.  To forget the saved network:
+`wifi AT+CWQAP`.
+
+### Normal operation
+
 After the disk is installed and the FPGA is reloaded:
 
 1. NitrOS-9 boots, runs `startup`, which configures the ESP for TCP
