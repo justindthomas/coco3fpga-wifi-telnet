@@ -12,10 +12,12 @@
 #                 If unset, we auto-extract one from $(DISK) the first
 #                 time you build the boot target and cache it.
 #   LWASM       : lwasm binary (default: `lwasm` from PATH).
-#   OS9         : toolshed `os9` binary (default: `os9` from PATH).
+#   OS9         : toolshed `os9` binary (default: built from the
+#                 vendored submodule into $(BUILD)/tools/).
 #
 # Targets:
 #   make             - assemble all modules into ./build/
+#   make tools       - build the vendored toolshed (os9/decb)
 #   make boot        - build ./build/OS9Boot
 #   make install     - copy OS9Boot, CMDS, and startup into $(DISK)
 #   make distro      - build a fresh NitrOS-9 disk by invoking the
@@ -26,13 +28,21 @@
 #   make clean       - remove ./build/
 
 LWASM ?= lwasm
-OS9   ?= os9
 NITROS9_SRC ?=
 PRISTINE    ?=
 DISK        ?=
 
 BUILD := build
 SRC   := src
+
+# Toolshed (the `os9` utility for poking at OS-9 .dsk images) is
+# vendored as a submodule and built locally into $(BUILD)/tools.
+# Override OS9= on the command line if you have a different copy you'd
+# rather use.
+TOOLSHED_SRC := vendor/toolshed
+TOOLS_DIR    := $(BUILD)/tools
+OS9          ?= $(TOOLS_DIR)/os9
+DECB         ?= $(TOOLS_DIR)/decb
 
 LWFLAGS = --6809 --format=os9 \
           --pragma=pcaspcr,nosymbolcase,condundefzero,undefextern,dollarnotlocal \
@@ -59,7 +69,7 @@ ALL_MODS  = $(BOOT_MODS) $(CMD_MODS)
 NITROS9_VER ?= v030300
 DISTRO_DSK = nos96809l2$(NITROS9_VER)coco3_becker.dsk
 
-.PHONY: all boot install distro fromscratch clean
+.PHONY: all boot install distro fromscratch tools clean
 all: $(ALL_MODS)
 
 $(BUILD)/%: $(SRC)/%.asm | $(BUILD)
@@ -68,12 +78,33 @@ $(BUILD)/%: $(SRC)/%.asm | $(BUILD)
 $(BUILD):
 	mkdir -p $(BUILD)
 
+# --- toolshed bootstrap --------------------------------------------
+# Build the vendored toolshed into $(TOOLS_DIR) so nothing on the
+# user's PATH is required.  Touches a sentinel so subsequent make
+# invocations skip the rebuild.
+tools: $(TOOLS_DIR)/.built
+
+$(TOOLS_DIR)/.built: $(TOOLSHED_SRC)/build/unix/Makefile | $(TOOLS_DIR)
+	$(MAKE) -C $(TOOLSHED_SRC)/build/unix
+	cp $(TOOLSHED_SRC)/build/unix/os9/os9 $(OS9)
+	cp $(TOOLSHED_SRC)/build/unix/decb/decb $(DECB)
+	touch $@
+
+$(OS9) $(DECB): $(TOOLS_DIR)/.built
+
+$(TOOLSHED_SRC)/build/unix/Makefile:
+	@echo "vendor/toolshed not populated - run: git submodule update --init"
+	@exit 1
+
+$(TOOLS_DIR): | $(BUILD)
+	mkdir -p $(TOOLS_DIR)
+
 boot: $(BUILD)/OS9Boot
 
 # Cache a pristine OS9Boot baseline.  If the user passed PRISTINE
 # explicitly, just copy it; otherwise pull a fresh one from DISK
 # (which must still have the stock NitrOS-9 boot installed).
-$(BUILD)/OS9Boot.pristine: | $(BUILD)
+$(BUILD)/OS9Boot.pristine: $(OS9) | $(BUILD)
 ifdef PRISTINE
 	cp $(PRISTINE) $@
 else
@@ -86,7 +117,7 @@ endif
 $(BUILD)/OS9Boot: $(BOOT_MODS) boot/build_boot.py $(BUILD)/OS9Boot.pristine
 	boot/build_boot.py --pristine $(BUILD)/OS9Boot.pristine --out $@ $(BOOT_MODS)
 
-install: boot $(CMD_MODS) boot/startup
+install: boot $(CMD_MODS) boot/startup $(OS9)
 ifndef DISK
 	$(error DISK not set - point it at the target .dsk image)
 endif

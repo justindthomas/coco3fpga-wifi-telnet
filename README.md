@@ -70,33 +70,52 @@ docs/
 
 ## Building
 
-Prerequisites on PATH:
+Prerequisites:
 
-- [`lwasm`](http://www.lwtools.ca/) (Lennart Benschop / William Astle)
-- [`toolshed`](https://github.com/boisy/toolshed) `os9` utility
+- A C toolchain (`make`, `cc`) – for building the vendored toolshed.
+- [`lwasm`](http://www.lwtools.ca/) on PATH – the 6809 assembler.
+  Install on macOS: `brew install lwtools`.
+- Python 3 – for `boot/build_boot.py`.
+
+The `os9` / `decb` utilities are **not** required on PATH; toolshed
+is vendored as a git submodule and `make tools` builds it into
+`build/tools/`.  After cloning:
+
+```
+git clone <this repo>
+cd coco3fpga-wifi-telnet
+git submodule update --init     # pulls vendor/toolshed
+```
 
 Required pointers (set as env or pass on the make line):
 
-- `NITROS9_SRC` – path to a NitrOS-9 v3.3.0 source tree.  Used only
+- `NITROS9_SRC` – path to a NitrOS-9 v3.3.0 source tree.  Used both
   for the shared `defsfile` / `os9.d` / `scf.d` headers our `.asm`
-  files include.
+  files include AND (for `fromscratch`) as the upstream source we
+  build the base disk from.  Get it from the
+  [NitrOS-9 project](https://nitros9.sourceforge.net/).
 - `DISK` – `.dsk` image to install into.  Must already contain a stock
   NitrOS-9 boot; we pull `OS9Boot` from it on first run as our
-  pristine baseline (cached as `build/OS9Boot.pristine`).
+  pristine baseline (cached as `build/OS9Boot.pristine`).  Only
+  needed for `make install`; `make fromscratch` builds its own.
 - `PRISTINE` – optional override if you'd rather supply the baseline
   yourself instead of extracting from `$(DISK)`.
 
 ```
+# Build vendored toolshed once (also done implicitly by the targets
+# below, but you can run it explicitly to confirm your tree is happy):
+make tools
+
 # Assemble modules only:
-make NITROS9_SRC=~/Downloads/nitros9-v3.3.0
+make NITROS9_SRC=~/code/nitros9-v3.3.0
 
 # Install onto an existing NitrOS-9 disk:
-make install NITROS9_SRC=~/Downloads/nitros9-v3.3.0 \
+make install NITROS9_SRC=~/code/nitros9-v3.3.0 \
              DISK=~/code/drivewire-rs/disks/nos96809l2v030300coco3fpga_becker.dsk
 
 # Build a fresh NitrOS-9 disk from source and install everything
 # onto it - no preexisting disk required:
-make fromscratch NITROS9_SRC=~/Downloads/nitros9-v3.3.0
+make fromscratch NITROS9_SRC=~/code/nitros9-v3.3.0
 # (result: build/disk.dsk, ready to boot the FPGA from.)
 ```
 
