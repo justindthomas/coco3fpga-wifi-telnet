@@ -1,0 +1,39 @@
+Trim the level2/coco3/cmds Makefile to only what assembles cleanly
+under current lwasm with a stock NitrOS-9 v3.3.0 source tree (no
+3rdparty packages present).
+
+- Drop `edit`: source uses `pulu pc,u` / `pshu u`, which lwasm
+  rejects as ambiguous on the 6809 (you can't push/pull U via
+  the user stack since U is the stack pointer for that mode).
+- Drop CMDS_D2 third-party tools: basic09, runb, gfx2, gfx,
+  inkey, syscall, tmode -- source lives under 3rdparty/packages/
+  which isn't in the stock v3.3.0 archive.
+- Drop CMDS_DW: inetd, dw, telnet, httpd are also 3rdparty.
+
+What's left is more than enough to boot, log in, and run the WiFi
+telnet bridge.
+
+--- a/level2/coco3/cmds/Makefile
++++ b/level2/coco3/cmds/Makefile
+@@ -16,17 +16,17 @@
+ 
+ CMDS		= asm attr backup binex build cmp cobbler copy cputype \
+ 		date dcheck debug ded deiniz del deldir devs dir dirsort disasm \
+-		display dmem dmode dsave dump echo edit error exbin \
++		display dmem dmode dsave dump echo error exbin \
+ 		format free grfdrv help ident iniz irqs link list load login \
+ 		makdir mdir megaread merge mfree minted mmap modpatch montype mpi os9gen padrom park \
+ 		pmap proc procs prompt pwd pxd reboot rename save setime \
+ 		shell_21 sleep smap tee tmode touch tsmon tuneport unlink verify wcreate xmode
+ 
+-CMDS_D2         = basic09 runb gfx2 gfx inkey syscall copy del echo format \
+-                merge os9gen prompt tmode
++CMDS_D2 = copy del echo format merge os9gen prompt
+ 
+-CMDS_DW		= inetd dw telnet httpd
+ 
++CMDS_DW =
++
+ SHELLMODS	= shellplus date deiniz echo iniz link load save unlink
+ 
+ UTILPAK1	= attr build copy del deldir dir display list makdir mdir \
