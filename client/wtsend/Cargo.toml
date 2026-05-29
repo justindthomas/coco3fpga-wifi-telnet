@@ -1,0 +1,17 @@
+[package]
+name = "wtsend"
+version = "0.1.0"
+edition = "2021"
+description = "Upload a file to a CoCo3FPGA running wtbridge"
+license = "Unlicense"
+
+[[bin]]
+name = "wtsend"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+panic = "abort"
+codegen-units = 1

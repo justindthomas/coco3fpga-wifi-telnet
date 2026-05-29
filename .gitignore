@@ -1,3 +1,4 @@
 build/
 *.lst
 .DS_Store
+client/*/target/

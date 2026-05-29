@@ -55,7 +55,7 @@ src/
   wt.asm         /wt device descriptor (controller addr $0000)
   wt1.asm        /wt1 device descriptor (controller addr $0001)
   wt2.asm        /wt2 device descriptor (controller addr $0002)
-  wtbridge.asm   user-space WiFi <-> /wt[N] bridge
+  wtbridge.asm   user-space WiFi <-> /wt[N] + file-upload bridge
   wtping.asm     diagnostic: push a string and dump whatever comes back
   wifi.asm       send a raw AT command to the ESP8266 and show the reply
 
@@ -63,10 +63,21 @@ boot/
   build_boot.py  assembles OS9Boot: pristine - unused modules + ours
   startup        iniz/tsmon for /wt[N], wifi setup, wtbridge&
 
+client/
+  wtsend/        Rust client that uploads a file via the WTUP protocol
+
 docs/
-  architecture.md  ring-buffer flow, SS.SSig wiring, hangup semantics
-  protocol.md      +IPD parsing, CLOSED detection, ESP CIPSEND format
+  architecture.md   ring-buffer flow, SS.SSig wiring, hangup semantics
+  protocol.md       +IPD parsing, CLOSED detection, ESP CIPSEND format
+  file-transfer.md  WTUP magic, per-link sniffing, status codes
 ```
+
+`wtbridge` multiplexes telnet and file uploads on the same TCP
+port (23): every new connection's first 4 bytes are sniffed, and
+if they spell `WTUP` the link is diverted to a file-receive path
+instead of being bound to a telnet shell.  See
+[`docs/file-transfer.md`](docs/file-transfer.md) for the wire
+format.
 
 ## Building
 
@@ -178,6 +189,31 @@ Single-client diagnostics:
 wtping U          # push "U<CR>" into /wt's m2s, sleep, dump s2m
 wifi AT+CIPSTATUS # send raw AT command, show reply
 ```
+
+### Uploading a file from a host
+
+Build the Rust client:
+
+```
+cd client/wtsend
+cargo build --release
+```
+
+Then push a file:
+
+```
+./target/release/wtsend \
+    --host 192.168.1.50 \
+    --remote /dd/CMDS/myprog \
+    ./myprog
+```
+
+The client opens a TCP connection to the bridge, sends the
+`WTUP`-prefixed header, streams the file body, reads a one-byte
+status from the server, and exits with `0` on success or a non-zero
+code matching the status (see [`docs/file-transfer.md`](docs/file-transfer.md)).
+Concurrent uploads aren't supported — the bridge will reply with
+status `5` (`busy`) if one is already in progress.
 
 ## License
 
